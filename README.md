@@ -246,7 +246,7 @@ pyruntime312\python.exe tools\diag_scene_mode_table.py
 
 ### 只读演示（手机/外部访问，无需服务器）
 
-`https://case-scene1.pages.dev/` —— Cloudflare Pages 托管 `dist-static/`，**本机不用开机**。
+`https://case-scene.pages.dev/` —— Cloudflare Pages 托管 `dist-static/`，**本机不用开机**。
 它只做"看"：模型实时渲染、结构线、家具盒、测量；上传/建模/协同需本地服务。
 
 重新生成静态包：
