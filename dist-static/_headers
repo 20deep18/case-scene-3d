@@ -1,0 +1,3 @@
+# Cloudflare Pages：模型文件不可变，可长缓存
+/models/*
+  Cache-Control: public, max-age=86400

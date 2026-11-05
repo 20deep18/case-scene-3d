@@ -1,0 +1,8 @@
+只读演示版（静态）
+==================
+部署（Cloudflare Pages，免费，不需要域名）：
+  1. 打开 https://dash.cloudflare.com → Workers & Pages → Create → Pages
+  2. 选 Upload assets，把本目录整个拖进去
+  3. 得到 https://<项目名>.pages.dev（HTTPS）
+注意：这里只有「看」——模型、结构线、家具盒、标注。
+      上传视频、建模、协同编辑在本版本中不可用（会提示只读演示版）。

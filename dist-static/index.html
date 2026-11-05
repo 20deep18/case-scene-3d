@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>案发现场三维重建与协同研判系统</title>
+    <!-- 带版本号：避免改完样式后浏览器仍用缓存，出现「改了却没生效」 -->
+    <link rel="stylesheet" href="/css/app.css?v=1.0.3" />
+    <script>
+    // 静态演示版（只读）：没有服务端。api.js / collab.js 据此降级。
+    window.__DSH_STATIC__ = true;
+    document.documentElement.classList.add('static-mode');
+    window.__STATIC_PROJECT_URL__ = '/project.json';
+  </script>
+  <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/build/three.module.js",
+          "three/addons/": "/vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="viewport"></canvas>
+
+      <!-- 顶部栏 -->
+      <header class="topbar">
+        <div class="brand">
+          <span class="logo">◈</span>
+          <div>
+            <div class="title">案发现场三维研判系统</div>
+        <!-- 只读演示版（静态托管）才显示；见 build_static.py 注入的 static-mode 类 -->
+        <span class="static-chip" title="这是只读演示版本：可看模型与结构线，不能上传/建模/协同">只读演示版</span>
+            <div class="subtitle" id="caseSubtitle">未加载案件</div>
+          </div>
+        </div>
+        <div class="topbar-center">
+          <div class="mode-switch" id="modeSwitch">
+            <button data-mode="orbit" class="active">环绕漫游</button>
+            <button data-mode="fly">第一人称</button>
+            <button data-mode="top">俯视态势</button>
+          </div>
+          <!-- 视角飞到场景外（例如位姿异常）导致画面全黑时的**一键恢复**。
+               以前只能刷新页面，标定到一半的对应点会全丢。 -->
+          <button id="btnFitView" class="ghost small" title="把镜头拉回现场全景（画面黑掉/飞走时用）">回到全景</button>
+        </div>
+        <div class="topbar-right">
+          <!--
+            结构状态牌（2026-10-06 新增）。
+            起因（用户反馈）：「房间处理和物体处理没区别，可能是没显示出来」——
+            实测柜子那两个模型在 自动/强制房间/强制物体 三种判定下**都画 0 条线**
+            （几何不可信 → 不画物体盒；再强制房间时自检不通过 → 也不画房间盒），
+            于是屏幕上真的**一模一样**，而那行解释只写在左栏小字里，等于没提示。
+            这块牌子常驻顶栏：现在按的是哪种处理、画了没有、为什么没画，一眼可见。
+          -->
+          <div class="stat struct-badge none" id="structBadge" title="结构图层状态">结构：未载入</div>
+          <div class="stat" id="statFps">-- FPS</div>
+          <div class="stat" id="statGauss">-- 高斯</div>
+          <div class="presence" id="presence"></div>
+          <div class="conn" id="connState">离线</div>
+        </div>
+      </header>
+
+      <!--
+        移动端抽屉开关（2026-11-02）。
+        为什么需要：窄屏下左右两栏各 286/320px，画布被挤成一条缝，手机上没法用。
+        现在窄屏两栏变抽屉：默认收起，点这两个按钮滑出，点遮罩/画布收起。
+        桌面端这两个按钮是 display:none（媒体查询外不显示），不影响原有布局。
+      -->
+      <button id="btnDrawerLeft" class="drawer-toggle" type="button"
+              aria-label="打开左栏（案件 / 图层）" title="案件 / 图层">☰</button>
+      <button id="btnDrawerRight" class="drawer-toggle" type="button"
+              aria-label="打开右栏（研判工具 / 标注）" title="研判工具 / 标注">🧰</button>
+      <div id="drawerBackdrop" hidden></div>
+
+      <!-- 左侧：案件 / 图层 / 在线人员 -->
+      <aside class="panel panel-left" id="panelLeft">
+        <section>
+          <h3>案件</h3>
+          <select id="projectSelect"></select>
+          <div class="row">
+            <button id="btnNewCase" class="ghost">新建案件</button>
+            <button id="btnRefreshCase" class="ghost">刷新</button>
+          </div>
+          <label class="field">
+            <span>模型文件 (.splat / .ply)</span>
+            <select id="modelSelect"></select>
+          </label>
+          <button id="btnLoadModel" class="primary">载入三维现场</button>
+          <div class="hint" id="modelHint">未载入模型</div>
+          <!--
+            场景判定改判入口（2026-10-06 新增）。
+            为什么需要：几何本身分不开「贴着物体拍」与「以旋转为主拍的房间」
+            （实测柜子素材 0.2344 vs 某段房间素材 0.2270），判不准时不该硬猜 ——
+            由拍摄的人直接指定最可靠。后端 scene_structure.py --scene-mode 早就有这个能力，
+            这里补上前端唯一的入口。改判结果存服务端 sidecar，多人共享。
+          -->
+          <label class="field" id="sceneModeField" hidden>
+            <span>场景判定（可人工改判）</span>
+            <select id="sceneModeSelect">
+              <option value="auto">自动判定（按证据）</option>
+              <option value="room">强制按「房间」处理</option>
+              <option value="object">强制按「物体」处理</option>
+            </select>
+          </label>
+          <div class="hint hint-tight" id="sceneModeHint" hidden></div>
+        </section>
+
+        <section>
+          <h3>现场建模</h3>
+          <p class="hint hint-tight">
+            依据本案导入的<b>视频 / 图片</b>建立现场三维模型。
+            流程：抽帧 → COLMAP 位姿 → 高斯泼溅训练 → 导出 .splat。
+          </p>
+          <button id="btnRecon" class="primary">开始建模</button>
+          <div id="reconStatus" class="recon-status hidden">
+            <div class="recon-head">
+              <span id="reconStage">排队中</span>
+              <span id="reconPct" class="recon-pct">0%</span>
+            </div>
+            <div class="bar"><div id="reconBar"></div></div>
+            <div class="recon-msg" id="reconMsg"></div>
+            <div class="recon-actions">
+              <button id="btnReconLog" class="ghost tiny">查看日志</button>
+              <button id="btnReconCancel" class="ghost tiny">取消</button>
+            </div>
+          </div>
+          <div class="hint" id="reconHint"></div>
+        </section>
+
+        <section>
+          <h3>精确测量 <span class="badge" id="measureBadge">0</span></h3>
+          <p class="hint hint-tight">
+            用工具栏的 <b>📏 尺寸标注</b> 在粗模上点出<b>需要精确测量的两点</b>，
+            现场民警量出真实距离后在这里填写；系统据此校正模型比例尺。
+          </p>
+          <div class="row">
+            <button id="btnMeasureList" class="ghost">待测清单 / 填写</button>
+            <button id="btnRecalibrate" class="ghost">按实测量校正</button>
+          </div>
+          <div class="hint" id="scaleHint"></div>
+        </section>
+
+        <section>
+          <h3>图层</h3>
+          <div id="layerList" class="layer-list"></div>
+        </section>
+
+        <section>
+          <h3>在线研判人员</h3>
+          <div id="userList" class="user-list"></div>
+        </section>
+
+        <section>
+          <h3>渲染参数</h3>
+          <label class="range">
+            <span>高斯尺寸 <b id="vScale">1.00</b></span>
+            <input type="range" id="rGaussScale" min="0.3" max="2.5" step="0.05" value="0.8" />
+          </label>
+          <label class="range">
+            <span>不透明度 <b id="vOpacity">1.00</b></span>
+            <input type="range" id="rOpacity" min="0.1" max="1.5" step="0.05" value="0.75" />
+          </label>
+          <label class="range">
+            <span>曝光 <b id="vExposure">1.00</b></span>
+            <input type="range" id="rExposure" min="0.4" max="2" step="0.05" value="1.1" />
+          </label>
+          <label class="check"><input type="checkbox" id="cSort" checked /> 实时视深度排序</label>
+          <label class="check"><input type="checkbox" id="cPoints" /> 显示相机轨迹点</label>
+          <label class="check" title="从 COLMAP 稀疏点云拟合出的地面、房间盒、墙面与相机路径">
+            <input type="checkbox" id="cStructure" checked /> 显示房间结构线框
+          </label>
+          <label class="check" title="从稠密表面点聚类出的家具盒（*.furniture.json，橙线）；没有该文件的模型不显示">
+            <input type="checkbox" id="cFurniture" checked /> 显示家具盒
+          </label>
+        </section>
+      </aside>
+
+      <!-- 右侧：工具 / 标注列表 / 属性 -->
+      <aside class="panel panel-right" id="panelRight">
+        <section>
+          <h3>研判工具</h3>
+          <div class="tools" id="toolBar">
+            <button data-tool="select" class="active" title="选择">↖ 选择</button>
+            <button data-tool="point" title="打点标注 (P)">◉ 打点</button>
+            <button data-tool="polyline" title="行动轨迹 (L)">〰 轨迹</button>
+            <button data-tool="measure" title="两点测距 (M)">↔ 测距</button>
+            <button data-tool="dimension" title="尺寸标注：标出「需要精确测量」的两点，待民警实测后回填 (D)">📏 尺寸标注</button>
+            <button data-tool="polygon" title="区域圈定 (G)">▱ 区域</button>
+            <button data-tool="camera" title="监控/勘查相机 (C)">🎥 相机</button>
+          </div>
+          <div class="hint" id="toolHint">左键选择，右键/ESC 取消当前绘制</div>
+        </section>
+
+        <section class="grow">
+          <h3>标注与物证 <span class="badge" id="annoCount">0</span></h3>
+          <input id="annoFilter" class="search" placeholder="按名称 / 备注筛选…" />
+          <div id="annoList" class="anno-list"></div>
+        </section>
+
+        <section>
+          <h3>选中对象</h3>
+          <div id="inspector" class="inspector">
+            <div class="hint">未选中任何对象</div>
+          </div>
+        </section>
+      </aside>
+
+      <!-- 底部：时间轴与协同 -->
+      <footer class="bottombar">
+        <div class="chat-wrap">
+          <div id="chatLog" class="chat-log"></div>
+          <div class="chat-input">
+            <input id="chatText" placeholder="向同案研判人员发送消息…" />
+            <button id="chatSend" class="primary small">发送</button>
+          </div>
+        </div>
+        <div class="camera-strip">
+          <div class="strip-head">
+            <span>多源画面</span>
+            <button id="btnAddCamera" class="ghost small">+ 导入监控/勘查视频</button>
+          </div>
+          <div id="cameraStrip" class="strip-body"></div>
+        </div>
+      </footer>
+
+      <!-- 悬浮信息 -->
+      <div id="hoverTip" class="hover-tip"></div>
+      <div id="toast" class="toast"></div>
+
+      <!-- 拍摄引导：方向覆盖度不足时给出「要补拍哪个方向」的明确建议 -->
+      <dialog id="dlgShooting">
+        <form method="dialog" class="confirm-form">
+          <h3 id="saTitle">拍摄建议</h3>
+          <p id="saBody" class="confirm-body"></p>
+          <p id="saTip" class="confirm-warn hidden"></p>
+          <menu>
+            <button value="ok" class="primary" id="btnShootingOk" data-dialog-close>知道了</button>
+          </menu>
+        </form>
+      </dialog>
+
+      <!-- 版本过期横幅：页面里的 JS 与服务端版本不一致时挂出来 -->
+      <div id="staleBanner" class="stale-banner hidden">
+        <span class="stale-icon">⟳</span>
+        <span id="staleText"></span>
+        <button id="staleReload" class="primary small">立即刷新</button>
+      </div>
+
+      <!-- 载入遮罩 -->
+      <div id="loader" class="loader hidden">
+        <div class="loader-box">
+          <div class="spinner"></div>
+          <div id="loaderText">正在载入三维现场…</div>
+          <div class="bar"><div id="loaderBar"></div></div>
+          <div class="loader-sub" id="loaderSub"></div>
+        </div>
+      </div>
+
+      <!-- 现场建模对话框 -->
+      <dialog id="dlgRecon">
+        <form method="dialog" class="recon-form">
+          <h3>现场建模</h3>
+          <p class="hint">
+            系统会用本案已导入的素材自动重建现场。素材越满足下面几点，模型越精确：
+            <b>有真实平移</b>（边走边拍，不要原地转圈）、画面有纹理（避免大面积白墙）、光线稳定。
+          </p>
+
+          <div class="recon-assets" id="reconAssets"></div>
+
+          <label class="field"><span>模型名称</span><input id="rcName" placeholder="例如：××路案发现场" /></label>
+
+          <details class="recon-adv">
+            <summary>高级参数（通常不用改）</summary>
+            <div class="recon-grid">
+              <label class="field"><span>抽帧帧率 (fps)</span><input type="number" id="rcFps" value="2" min="0.5" max="10" step="0.5" /></label>
+              <label class="field"><span>长边上限 (px)</span><input type="number" id="rcLongSide" value="1600" min="640" max="4000" step="160" /></label>
+              <label class="field"><span>模糊过滤阈值</span><input type="number" id="rcBlur" value="60" min="0" max="400" step="10" /></label>
+              <label class="field"><span>匹配策略</span>
+                <select id="rcMatcher">
+                  <option value="exhaustive">穷举（推荐，慢但注册率高）</option>
+                  <option value="sequential">顺序（快，仅适合连续视频）</option>
+                </select>
+              </label>
+              <label class="field"><span>相机模型</span>
+                <select id="rcCamera">
+                  <option value="OPENCV">OPENCV（含畸变，推荐）</option>
+                  <option value="SIMPLE_RADIAL">SIMPLE_RADIAL</option>
+                  <option value="PINHOLE">PINHOLE（无畸变）</option>
+                </select>
+              </label>
+              <label class="field"><span>训练步数</span><input type="number" id="rcIterations" value="30000" min="1000" max="120000" step="1000" /></label>
+              <label class="field"><span>下采样倍数</span>
+                <select id="rcDownscale">
+                  <option value="1">1（全分辨率，最清晰最慢）</option>
+                  <option value="2" selected>2（推荐）</option>
+                  <option value="3">3（省显存）</option>
+                  <option value="4">4（最快，画质最低）</option>
+                </select>
+              </label>
+              <label class="field"><span>球谐阶数</span>
+                <select id="rcShDegree">
+                  <option value="0">0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3" selected>3（推荐）</option>
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <menu>
+            <button value="cancel" class="ghost" id="btnReconDlgCancel" data-dialog-close>取消</button>
+            <button type="button" id="btnReconStart" value="ok" class="primary">开始建模</button>
+          </menu>
+        </form>
+      </dialog>
+
+      <!-- 建模日志对话框 -->
+      <dialog id="dlgReconLog">
+        <form method="dialog" class="recon-log-form">
+          <h3>建模日志 <span class="hint" id="rlStage"></span></h3>
+          <pre id="rlBody" class="recon-log"></pre>
+          <menu>
+            <button value="ok" class="primary" id="btnReconLogClose" data-dialog-close>关闭</button>
+          </menu>
+        </form>
+      </dialog>
+
+      <!-- 待实测清单：民警现场测量后填写 -->
+      <dialog id="dlgMeasure">
+        <form method="dialog" class="measure-form">
+          <h3>精确测量清单</h3>
+          <p class="hint">
+            下面每一项都是现场民警需要在<b>真实空间里量出</b>的距离（不是模型里的数字）。
+            填写后点「保存全部」，再点「按实测量校正比例尺」，整个模型与所有测距就会按真实尺寸显示。
+          </p>
+          <div class="measure-toolbar">
+            <span class="hint" id="measureSummary"></span>
+            <span class="spacer"></span>
+            <button type="button" id="btnMeasureExport" class="ghost tiny">导出 CSV（打印带去现场）</button>
+          </div>
+          <div id="measureTable" class="measure-table"></div>
+          <div class="measure-done hidden" id="measureDone"></div>
+          <menu>
+            <button value="cancel" class="ghost" data-dialog-close>关闭</button>
+            <button type="button" id="btnMeasureSave" class="primary">保存全部</button>
+          </menu>
+        </form>
+      </dialog>
+
+      <!-- 通用确认对话框（替代 window.confirm：更可靠、可显示影响范围） -->
+      <dialog id="dlgConfirm">
+        <form method="dialog" class="confirm-form">
+          <h3 id="cfTitle">确认操作</h3>
+          <p id="cfBody" class="confirm-body"></p>
+          <p id="cfWarn" class="confirm-warn hidden"></p>
+          <menu>
+            <button value="cancel" class="ghost" id="cfCancel" data-dialog-close>取消</button>
+            <button value="ok" class="danger" id="cfOk">确认删除</button>
+          </menu>
+        </form>
+      </dialog>
+
+      <!-- 新建案件对话框 -->
+      <dialog id="dlgNewCase">
+        <form method="dialog">
+          <h3>新建案件</h3>
+          <label class="field"><span>案件名称</span><input id="ncName" required placeholder="例如：××路入室盗窃案" /></label>
+          <label class="field"><span>简要说明</span><input id="ncDesc" placeholder="现场位置、案件类型…" /></label>
+          <label class="field"><span>办案人</span><input id="ncOperator" placeholder="姓名/警号" /></label>
+          <menu>
+            <button value="cancel" class="ghost" data-dialog-close>取消</button>
+            <button value="ok" class="primary">创建</button>
+          </menu>
+        </form>
+      </dialog>
+
+      <!-- 导入视频对话框 -->
+      <dialog id="dlgImport">
+        <form method="dialog">
+          <h3>导入监控 / 勘查视频</h3>
+          <p class="hint">视频会上传到当前案件目录，并作为「相机」图层贴回三维现场。</p>
+          <label class="field"><span>本地视频/图片</span><input type="file" id="impFile" accept="video/*,image/*" /></label>
+          <label class="field"><span>名称</span><input id="impName" placeholder="例如：大门监控 01" /></label>
+          <label class="field"><span>画面类型</span>
+            <select id="impKind"><option value="video">监控/勘查视频</option><option value="image">现场照片</option></select>
+          </label>
+          <div class="bar small"><div id="impBar"></div></div>
+          <menu>
+            <button value="cancel" class="ghost" data-dialog-close>取消</button>
+            <button value="ok" class="primary">上传并导入</button>
+          </menu>
+        </form>
+      </dialog>
+    </div>
+
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

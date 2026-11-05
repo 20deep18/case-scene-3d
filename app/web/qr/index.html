@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>扫码访问 · 案发现场三维重建与协同研判系统</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px;
+    background: #0b1014; color: #e8eef4;
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    padding: 28px;
+  }
+  h1 { font-size: clamp(20px, 3.4vw, 30px); margin: 0; text-align: center; }
+  p.note { color: #9fb3c2; margin: 0; text-align: center; }
+  .grid { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
+  .card {
+    margin: 0; padding: 16px; border-radius: 14px; background: #fff;
+    box-shadow: 0 10px 30px rgba(0,0,0,.45); text-align: center;
+  }
+  .card img { display: block; width: min(46vw, 300px); height: auto; }
+  figcaption { margin-top: 10px; font-size: 13px; color: #123; word-break: break-all; }
+  figcaption a { color: #0e6b8a; text-decoration: none; font-weight: 600; }
+  .hint { display: block; color: #667; font-size: 12px; margin-top: 2px; }
+  footer { color: #5d7284; font-size: 12px; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>案发现场三维重建与协同研判系统</h1>
+  <p class="note">手机扫码 → 打开现场（只看模型与结构线条，无需安装 App）</p>
+  <div class="grid">
+      <figure class="card">
+        <img src="192-168-100-5_8787.png" alt="二维码 http://192.168.100.5:8787" />
+        <figcaption>
+          <a href="http://192.168.100.5:8787">http://192.168.100.5:8787</a>
+          <span class="hint">扫码或点链接</span>
+        </figcaption>
+      </figure>
+  </div>
+  <footer>生成于 2026-11-02 20:10　·　地址变了就要重新生成二维码（见 docs/下一轮计划与外部访问方案.md）</footer>
+</body>
+</html>

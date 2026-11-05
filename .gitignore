@@ -1,0 +1,32 @@
+# ---- 大体积二进制 / 运行时（不要进仓库，README 里有获取方式）----
+models/            # VGGT / Grounding DINO / Depth Anything 权重（5.7 GB）
+pydeps312/         # 第三方 Python 依赖（6.4 GB）
+pydeps/
+wheels/            # torch 等轮子（8 GB）
+pyruntime312/      # 嵌入式 Python 运行时（23 MB，换机器要重装）
+tools/colmap/      # COLMAP 二进制（764 MB）→ 自行安装 COLMAP 3.12+
+tools/cloudflared/ # 内网穿透（53 MB）→ 按需下载
+tools/dist/        # COLMAP 构建产物（55 MB）
+
+# ---- 数据与产物（体积大、且是本机的实验数据）----
+data/
+output/
+.buildtmp/
+dist-static.zip
+
+# ---- Python / Node 缓存 ----
+__pycache__/
+*.py[cod]
+.pytest_cache/
+node_modules/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- 本机配置 ----
+*.local
+.env

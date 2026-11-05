@@ -1,0 +1,12 @@
+{
+  "minBytes": 12582912,
+  "recommendedBytes": 33554432,
+  "measured": true,
+  "measuredAt": "2026-10-05",
+  "unit": "byte",
+  "source": "tools/threshold_experiment.py",
+  "report": "output/threshold/threshold-report.md",
+  "summary": "output/threshold/summary.md",
+  "evidence": "docs/建模最小素材体积实测.md",
+  "note": "实测（fps=2 抽帧 + COLMAP exhaustive + gsplat 7000 步真实训练，11 档 + 边界重跑）：素材低于 12MiB 时，4MB 档稀疏点为 0、8MB 档两次重跑分别为 注册20%/350点 与 注册100%/6116点(PSNR仅11.6dB)，即『每一步都成功但产物是废的』；12.02MB 档两次独立重跑都注册 23/23、稀疏点 1.1 万+、模型可用。故取下限 12MiB —— 卡的是『可重复地跑出可用模型』这条线，不是『低于就一定失败』。体积只是『素材够不够』的粗略代理，拍摄质量（真实平移/纹理）同样决定成败，因此界面只提示、不禁止建模。"
+}

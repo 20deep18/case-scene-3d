@@ -1,0 +1,158 @@
+﻿====================================================================================================
+FILE: C:\Users\HP\Desktop\案发现场三维重建与协同研判系统_项目蓝图.docx
+====================================================================================================
+案发现场三维重建与协同研判系统 · 项目蓝图
+本项目灵感来源于游戏中的空间呈现方式，核心初衷是把二维画面（监控、照片、勘查视频）与三维空间精准地联系起来。系统定位为警务研判的“空间信息交互中枢”：一线民警用手机或执法记录仪采集现场影像，经 AI 自动重建为 1:1 复刻的三维数字现场；研判人员无需安装专业软件，打开浏览器即可在同一三维场景中实时漫游、打点标注、同步轨迹，实现跨时空的协同研判。本蓝图用于在开发前明确项目要解决的需求、能发挥的核心作用，以及必须坚守的技术与业务边界。
+一、项目背景与定位
+传统警务研判依赖平面照片与分散的监控画面，存在严重的信息孤岛：研判人员难以直观理解案发现场复杂的立体空间关系、物证位置与嫌疑人行动轨迹，多路监控与现场影像之间也缺乏统一的空间参照。本项目面向这一痛点，构建一套“采集—重建—对齐—可视化”一体化的三维协同研判系统，把异构的二维视觉数据统一映射到同一三维坐标系下，成为指挥、研判、取证三类角色的共同工作底座。
+二、项目需求：我们要解决什么问题
+空间认知破局（看得清）：打破平面照片与监控画面的局限，将二维信息无缝映射到三维空间，让研判人员直观理解案发现场的立体空间关系、物证位置与嫌疑人轨迹。
+多源数据融合（连得上）：实现“监控视频、现场勘查视频、现场照片”三类异构数据的统一，解决不同视角、不同设备、不同时间拍摄的数据在同一三维坐标系下精准对齐的难题。
+实时协同研判（用得爽）：为一线民警、指挥员、研判员提供低门槛、流畅的 Web 端可视化工具，支持多人同一三维场景中实时漫游、打点标注、同步轨迹，打破物理空间与时间的壁垒。
+三、核心作用：这个作品能带来什么价值
+对指挥员——上帝视角的精准决策：无需再盯着几十个独立监控屏幕，直接在一个 1:1 复刻的三维数字现场中，结合实时视频贴图与标注信息，快速厘清整体态势、下达精准指令。
+对研判员——沉浸式深度推演：在三维场景中模拟嫌疑人行动路线，进行视线遮挡分析、血迹喷溅轨迹分析等，并可沿时间轴回放手持勘查视频还原案发经过，发现二维画面易遗漏的隐蔽线索。
+对一线民警——轻量化高效取证：现场只需用普通手机或手持设备拍摄一圈视频/照片，通过 AI 快速生成三维模型，极大缩短现场封锁与勘察时间，并永久留存不可篡改、随时回溯的原始现场三维数字档案。
+四、项目边界：要做什么，绝不碰什么
+聚焦“视觉重建与空间对齐”，放弃“AI 语义自动分析”：核心能力是把监控画面、勘查视频“贴”到三维模型里，直观表达空间关系；不做人脸识别、行为预测等后端安防 AI 范畴，以规避技术风险与隐私合规问题。
+聚焦“Web 端轻量化流畅渲染”，放弃“原生 App / 专业桌面端”：必须以浏览器作为最终交付形态，一线民警无需安装专业软件即可流畅查看与协同标注，规避跨平台运维成本与设备性能差异导致的现场不可用。
+聚焦“通用数据采集”，放弃“重型专业硬件依赖”：输入端极度轻量化，普通智能手机、执法记录仪、普通监控摄像头均可作为数据源；不依赖数十万元级的激光雷达或专业三维扫描仪，控制落地成本与使用门槛。
+五、技术选型与工具链
+模块一 三维场景重建：以 3D Gaussian Splatting（3DGS）为核心算法，配合 COLMAP 完成稀疏点云与相机位姿估计，训练输出 .ply 高斯泼溅场景；零门槛原型阶段可用 Polycam 或 Luma AI 在手机端“随手拍”一键生成 .glb/.ply 模型。
+模块二 多源数据融合与坐标对齐：以勘查视频/照片重建的场景为基准世界坐标系；对监控视频，借助 CloudCompare/Open3D 配准，并以 OpenCV 的 PnP（Perspective-n-Point）算法解算监控相机的内外参，实现画面与三维空间的精准对齐。
+模块三 Web 端协同与可视化：采用 Three.js / WebGPU 配合 Web 优化的 3DGS 渲染库（如 splat.js）加载渲染；用 WebSocket + Node.js 实现多人漫游、3D 标注与实时同步；模型由 .ply 转为适合 Web 的 .splat 格式并做量化压缩。
+AI 工具组合：三维重建用 Polycam / Luma AI 降低门槛；代码与算法逻辑用 Cursor 辅助生成 Three.js 渲染、PnP 对齐、协同后端等模块；多源数据流与协同事件编排用 Make（Integromat）+ 本地数据库作为“胶水”，快速搭建协同后台。
+六、落地路线：由易到难
+第一阶段 原型验证（1-2 周）：用手机环绕拍摄一个简单桌面场景，跑通 COLMAP + 3DGS 流程生成 .ply 模型，并用 splat.js 在本地 HTML 页面流畅加载渲染。
+第二阶段 融合测试（2-3 周）：以带二维码的卡片作为标定物，结合 3DGS 场景中的二维码位置用 OpenCV 解算“监控视频”的相机位姿，在 Web 端实现视频画面以正确透视“贴”到场景对应位置。
+第三阶段 系统开发与实战迭代（1-2 个月）：开发后端实现多用户登录与标注数据存储，引入 WebSocket 实现多人协同，对接真实警务视频流（RTSP/RTMP）协议解析，优化大模型加载速度。
+七、总结
+本项目将计算机视觉（CV）、图形学（CG）与 Web 全栈技术有机结合，以 3DGS 三维重建为基石、以多源数据空间对齐为核心难点、以 Web 端轻量协同为最终交付，完整契合“把二维画面和三维空间联系起来”的初衷。在警务、应急、消防等领域具备极大的落地潜力。建议按上述由易到难的路线，先从跑通模块一的 3DGS 重建开始，逐步迭代至实战可用的协同研判系统。
+
+====================================================================================================
+FILE: C:\Users\HP\Desktop\案发现场三维重建_B路线开源自部署落地手册.docx
+====================================================================================================
+案发现场三维重建 · B 路线开源自部署落地手册
+COLMAP + 3D Gaussian Splatting 全流程命令清单与报错处理
+本手册面向选择「B 路线（开源自部署）」的你，目标是在一台带 NVIDIA 显卡的电脑上，走通「视频 → 抽帧 → COLMAP 相机位姿估计 → 3D Gaussian Splatting 训练 → 转 Web 格式 → 浏览器加载」这条最短链路，得到可无限免费重用的三维重建引擎。所有命令均可直接复制到终端执行，每一步后附常见报错与处理。建议逐条执行并核对产物后再进入下一步。
+一、环境准备与硬件要求
+(一) 硬件与系统要求
+本地电脑需满足：NVIDIA 独立显卡（显存建议 ≥ 8GB，桌面级 RTX 30/40 系列最稳），内存 ≥ 16GB，磁盘剩余 ≥ 30GB（存放抽帧图片与训练中间产物）。操作系统推荐 Ubuntu 20.04/22.04（最省心），Windows 10/11 + WSL2 亦可。笔记本的核显无法训练，务必确认已启用独显。
+(二) 安装显卡驱动与 CUDA
+COLMAP 与 3DGS 训练均依赖 CUDA。最省事的做法是让 Conda 环境自带 cudatoolkit，避免与系统 CUDA 版本冲突，因此系统层面只需装好最新的 NVIDIA 驱动即可，用以下命令确认驱动与 GPU 可见：
+nvidia-smi
+# 能打印出显卡型号、驱动版本、显存即说明驱动正常
+(三) 创建并激活 Conda 环境
+安装 Miniconda 后，创建一个独立的 Python 3.8/3.9 环境（原版 3DGS 官方仓库对 3.7~3.9 兼容性最好），并安装 PyTorch 的 CUDA 版本：
+conda create -n 3dgs python=3.9 -y
+conda activate 3dgs
+# 安装与 CUDA 11.8 匹配的 PyTorch（按你 nvidia-smi 显示的 CUDA 版本选）
+pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu118
+pip install ninja   # 编译 CUDA 扩展需要，缺失会报错
+常见报错：pip 安装 PyTorch 后 import torch 报「CUDA not available」。原因多为装成了 CPU 版或 CUDA 版本不匹配，处理是卸载重装带 --index-url 的 cuXXX 版本，并确认 nvidia-smi 显示的 CUDA Version ≥ 所选 torch 的 cu 版本。
+二、数据准备与视频抽帧
+(一) 采集要点回顾
+模型质量差九成出在采集。拍摄时手机慢走环绕目标 2~3 圈、每圈换高度，相邻画面重叠 ≥ 70%，光线均匀，避开玻璃、镜面、纯白墙和反光物。先用桌面小物体（玩具 + 一本书）练手，不要一上来拍整个房间。
+(二) 用 ffmpeg 抽帧成图片序列
+把现场采集的视频抽成等间隔图片。建议 2~3 fps、长边 1600~1920 像素（太大 COLMAP 变慢、太小特征不足）。先把视频放在项目根目录 data/scene/input.mp4：
+mkdir -p data/scene/input && cd data/scene
+# 按 2fps 抽帧，等比缩放到长边 1600
+ffmpeg -i input.mp4 -vf "fps=2,scale=1600:-1" -qmin 1 -q:v 1 input/frame_%04d.png
+ls input | head    # 应看到 frame_0001.png 等序列
+常见报错：ffmpeg 未安装或报 Command not found。Ubuntu 用 sudo apt install ffmpeg，Windows 下载 ffmpeg.exe 加入 PATH。抽出的图片务必是清晰帧，可在 input/ 里人工删掉严重糊掉、重叠不足的帧。
+三、COLMAP 相机位姿估计
+COLMAP 负责回答「每张照片是在哪个位置、什么角度拍的」，它产出的 sparse/ 目录是训练 3DGS 的必需输入。下面用命令行分四步走。
+(一) 建立数据库并提取特征
+# 在 scene 目录下，database 和 sparse 存输出
+colmap feature_extractor \
+--database_path database.db \
+--image_path input \
+--ImageReader.camera_model OPENCV
+手机拍摄有畸变，相机模型选 OPENCV（含畸变参数）；若是已校正或不确定可用 SIMPLE_RADIAL。
+(二) 特征匹配
+colmap exhaustive_matcher \
+--database_path database.db \
+--SiftMatching.guided_matching 1
+图片数量 ≤ 几百张时用 exhaustive_matcher（全匹配，质量最高）。若抽帧后上千张，改用序列匹配以提速：把命令换成 colmap sequential_matcher 并加 --SequentialMatching.overlap 10。
+(三) 稀疏重建（mapper）
+mkdir -p sparse
+colmap mapper \
+--database_path database.db \
+--image_path input \
+--output_path sparse
+mapper 会输出 sparse/0、sparse/1 … 每个是一个重建模型。挑注册图片数量最多的那个（用 colmap model_analyzer 查看 #images），一般把编号最小的可用模型当基准，重命名为 0。
+(四) 导出与去畸变（可选，推荐给 Web）
+# 查看某个模型注册了多少张图、是否含畸变
+colmap model_analyzer \
+--path sparse/0
+# 把带畸变图去畸变后重新导出（训练更稳）
+mkdir -p undistorted
+colmap undistort \
+--image_path input \
+--input_path sparse/0 \
+--output_path undistorted
+常见报错：mapper 只注册了很少的图片（如个位数），sparse/ 下模型几乎空。原因通常是抽帧重叠不足或特征太少，处理：补拍增加环绕覆盖、把相邻帧重叠提到 80%、或降低 feature_num 阈值并开启 guided_matching。若报 CUDA error: no CUDA-capable device，说明 COLMAP 编译时未带 CUDA 或显卡未启用，可加 --SiftExtraction.use_gpu 0 改用 CPU（慢但能跑）。
+四、3D Gaussian Splatting 训练
+(一) 获取并编译训练库
+这里用原版官方仓库 graphdeco-inria/gaussian-splatting（稳定、社区教程最多）。克隆后安装子模块与 CUDA 光栅化器：
+cd ~ && git clone --recursive https://github.com/graphdeco-inria/gaussian-splatting.git
+cd gaussian-splatting
+pip install -r requirements.txt
+pip install submodules/diff-gaussian-rasterization \
+submodules/simple-knn
+常见报错：编译 submodules 时报「ninja: build stopped」或「error: could not build CUDA kernel」。多为 ninja 缺失、CUDA/nvcc 与 PyTorch 版本不匹配、或显存/内存不足。处理：确认已 pip install ninja，确认 nvcc --version 与 torch.version.cuda 一致，必要时 conda install -c nvidia cuda-toolkit=11.8 提供 nvcc。
+(二) 组织数据目录结构
+3DGS 要求固定目录：images 放抽帧图，sparse/0 放 COLMAP 结果。用软链接或拷贝对齐：
+cd ~/gaussian-splatting
+mkdir -p data/scene
+ln -s ~/../data/scene/undistorted/images data/scene/images
+mkdir -p data/scene/sparse
+cp -r ~/data/scene/sparse/0 data/scene/sparse/0   # 或用 undistorted 里的 sparse
+(三) 启动训练
+python train.py -s data/scene -m output/scene
+-s 指定数据目录，-m 指定模型输出目录。默认 30000 次迭代、约 10~30 分钟（视场景与显卡）。
+(四) 参数调优
+# 点数偏少、细节糊：提高致密化阈值并增加迭代
+python train.py -s data/scene -m output/scene \
+--densify_grad_threshold 0.00015 --iterations 40000
+# 训练时实时可视化（浏览器 http://localhost:6007）
+tensorboard --logdir output/scene --port 6007
+常见报错：训练开始即 CUDA out of memory。处理：给 train.py 加 --test_iterations 减少中间渲染、用更小分辨率图片、或换更大显存显卡。训练完 output/scene/point_cloud/ 下会生成 iteration_30000/point_cloud.ply，这就是你的高斯泼溅模型。
+五、导出浏览器可用的格式
+(一) 转 .splat / 压缩
+原版 .ply 体积大，Web 端推荐转成 .splat 或 .ksplat 并压缩。使用社区转换工具：
+pip install convert-3dgs-to-ksplat
+convert-3dgs-to-ksplat \
+output/scene/point_cloud/iteration_30000/point_cloud.ply \
+--output output/scene/scene.ksplat
+也可用 mkkellogg 的 ConvertSplat 在线工具（浏览器里把 .ply 拖进去导出 .ksplat/.splat），或 anti-mainstream 的 splat-transform 做进一步量化压缩。
+(二) 减面与控制体积
+若加载仍卡，可裁剪低贡献高斯球以减小文件：
+# 裁剪低贡献高斯球：按 opacity 阈值过滤（示例阈值 0.1，越小删得越多）
+python crop_by_opacity.py scene.ply scene_cut.ply --thresh 0.1
+# 更稳妥的做法：训练时控制 --iterations 与点数上限，从源头减负
+经验值：一个桌面小场景导出的 .splat 控制在 20~80MB、浏览器可流畅漫游，即为合格交付。
+六、浏览器加载与渲染
+(一) 用 gsplat / PlayCanvas viewer 加载
+最快验证：直接用开源 PlayCanvas SuperSplat 或 antimatter15 的 splat 页面，把导出的 .splat 拖进网页即可旋转缩放漫游。工程化集成则用 Three.js + gsplat 渲染库：
+npm create vite@latest web-viewer -- --template vanilla
+cd web-viewer && npm install three @react-three/fiber  # 或原生 three
+# 用 three.js-gsplat / gsplat 渲染器加载 scene.splat
+(二) 启动本地预览服务器
+npm run dev
+# 打开终端给出的 http://localhost:5173
+常见报错：浏览器加载 .splat 报 CORS 或 404。原因是模型未放在静态可访问目录，处理：把 .splat 放进 public/ 目录，用相对路径 public/scene.splat 引用。报 WebGPU/WebGL 不支持，则升级浏览器（Chrome ≥ 113）或开启硬件加速。
+七、全流程常见报错速查
+(一) COLMAP 阶段
+① 只注册极少图片：增加环绕覆盖与帧重叠、开 guided_matching；② no CUDA device：加 --SiftExtraction.use_gpu 0；③ 匹配极慢：改用 sequential_matcher。
+(二) 训练阶段
+① 编译 rasterization 失败：确认 ninja、nvcc 与 torch CUDA 版本三者一致；② CUDA OOM：降分辨率、减迭代、换大显存卡；③ 结果满是噪点/漂浮物：多为 COLMAP 位姿不稳或抽帧糊帧，回到第二、三步清理图片。
+(三) Web 阶段
+① 404/CORS：模型放 public/ 用相对路径；② 卡顿：压缩或裁剪高斯球、确认走 WebGPU；③ 白屏：升级 Chrome、开启硬件加速。
+八、验收清单与下一步
+(一) B 路线跑通验收（三条全打勾才算成功）
+① 拿到 output/scene/point_cloud/.../point_cloud.ply 与导出后的 .splat/.ksplat；② 该文件能在浏览器里流畅旋转、缩放、第一人称漫游；③ 模型看起来「像真的」——能认出桌面物体轮廓、颜色、文字。
+(二) 下一步（进入真正的难点）
+跑通本手册后，你已具备「本地免费批量重建」引擎。下一个里程碑是多源对齐：用 OpenCV 的 PnP 标定把监控/勘查视频的相机外参解算出来，再作为动态纹理贴回这个三维场景，最终叠加 WebSocket 实现多人协同标注。需要时我可以继续为你编写「监控画面与三维场景 PnP 对齐」的完整 Python 实现。
+编制日期：2026年10月03日
+
